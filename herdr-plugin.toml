@@ -1,0 +1,33 @@
+id = "smart-nav"
+name = "Smart Nav"
+version = "0.1.0"
+min_herdr_version = "0.7.0"
+description = "Smart Ctrl+h/j/k/l across nvim windows, herdr panes, tabs and workspaces"
+platforms = ["linux", "macos"]
+
+[[build]]
+command = ["cargo", "build", "--release"]
+
+[[actions]]
+id = "left"
+title = "Smart navigate left (nvim/pane/tab/space)"
+contexts = ["global"]
+command = ["./target/release/herdr-smart-nav", "left"]
+
+[[actions]]
+id = "down"
+title = "Smart navigate down (nvim/pane/tab/space)"
+contexts = ["global"]
+command = ["./target/release/herdr-smart-nav", "down"]
+
+[[actions]]
+id = "up"
+title = "Smart navigate up (nvim/pane/tab/space)"
+contexts = ["global"]
+command = ["./target/release/herdr-smart-nav", "up"]
+
+[[actions]]
+id = "right"
+title = "Smart navigate right (nvim/pane/tab/space)"
+contexts = ["global"]
+command = ["./target/release/herdr-smart-nav", "right"]
