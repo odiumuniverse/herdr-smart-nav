@@ -3,6 +3,8 @@
 test:
 	cargo build
 	cargo test
+	nvim --headless --noplugin --cmd "set rtp+=." +"lua require('herdr-smart-nav').setup()" +"lua assert(next(vim.fn.maparg('<C-h>', 'n', false, true)) ~= nil, 'C-h missing')" +qa
+	nvim --headless --noplugin --cmd "set rtp+=." +"lua require('herdr-smart-nav').setup({ keymaps = false })" +"lua assert(next(vim.fn.maparg('<C-h>', 'n', false, true)) == nil, 'C-h leak')" +qa
 
 lint:
 	cargo fmt --check

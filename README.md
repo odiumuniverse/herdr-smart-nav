@@ -78,23 +78,33 @@ Then `herdr server reload-config`.
 Without this, level 1 is skipped: in a vim pane the key still reaches nvim
 (forwarded), but the nvim edge won't continue into tabs/workspaces.
 
-With lazy.nvim, point a local spec at the checkout (it must load **after**
-other plugins — the `VeryLazy` re-apply wins over LazyVim defaults):
+With lazy.nvim (the module self-registers; `opts` may stay empty):
 
 ```lua
-{ dir = vim.fn.expand("~/herdr-smart-nav"), name = "herdr-smart-nav",
-  config = function()
-    local load = function() dofile(vim.fn.expand("~/herdr-smart-nav/editor/nvim.lua")) end
-    load()
-    vim.api.nvim_create_autocmd("VeryLazy", {
-      group = vim.api.nvim_create_augroup("HerdrSmartNav", { clear = true }),
-      callback = load,
-    })
-  end }
+{
+  "odiumuniverse/herdr-smart-nav",
+  build = "cargo build --release",
+  opts = {},
+}
 ```
 
-No plugin manager: copy `editor/nvim.lua` to
-`~/.config/nvim/after/plugin/herdr-smart-nav.lua`.
+With vim-plug:
+
+```vim
+Plug 'odiumuniverse/herdr-smart-nav', { 'do': 'cargo build --release' }
+```
+
+```lua
+require("herdr-smart-nav").setup()
+```
+
+No plugin manager: copy the repo's `lua/herdr-smart-nav.lua` somewhere on
+your runtimepath and call `setup()`, or source `editor/nvim.lua` (does both).
+
+`setup({ keymaps = false })` skips the `<C-h/j/k/l>` maps and only defines
+the `:SmartNavLeft/Down/Up/Right` commands. `setup({ bin = "..." })` pins
+the binary; otherwise the repo build, the herdr-managed build,
+`~/.cargo/bin` and `PATH` are tried in order.
 
 Remove or disable any other `<C-h/j/k/l>` owners (`vim-tmux-navigator`
 mappings, `devxplay/herdr.nvim`, hand-rolled `<C-w>h` maps) — only one owner
