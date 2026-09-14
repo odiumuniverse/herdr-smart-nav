@@ -22,6 +22,10 @@ case "${1:-} ${2:-}" in
   note "focus $4"
   out "$STUB_FOCUS"
   ;;
+"pane current")
+  note "pane current"
+  out "${STUB_PANE_CURRENT:?}"
+  ;;
 "pane list")
   out "${STUB_PANE_LIST:?}"
   ;;
@@ -30,10 +34,10 @@ case "${1:-} ${2:-}" in
   out "${STUB_TAB_LIST:?}"
   ;;
 "tab focus")
+  note "tab focus $3"
   if [ "${STUB_TAB_FOCUS_FAIL:-0}" = "1" ]; then
     exit 1
   fi
-  note "tab focus $3"
   out '{}'
   ;;
 "workspace list")

@@ -10,24 +10,24 @@ command = ["cargo", "build", "--release"]
 
 [[actions]]
 id = "left"
-title = "Smart navigate left (nvim/pane/tab/space)"
+title = "Smart navigate left (nvim/pane/tab)"
 contexts = ["global"]
 command = ["./target/release/herdr-smart-nav", "left"]
 
 [[actions]]
 id = "down"
-title = "Smart navigate down (nvim/pane/tab/space)"
+title = "Smart navigate down (nvim/pane/space)"
 contexts = ["global"]
 command = ["./target/release/herdr-smart-nav", "down"]
 
 [[actions]]
 id = "up"
-title = "Smart navigate up (nvim/pane/tab/space)"
+title = "Smart navigate up (nvim/pane/space)"
 contexts = ["global"]
 command = ["./target/release/herdr-smart-nav", "up"]
 
 [[actions]]
 id = "right"
-title = "Smart navigate right (nvim/pane/tab/space)"
+title = "Smart navigate right (nvim/pane/tab)"
 contexts = ["global"]
 command = ["./target/release/herdr-smart-nav", "right"]

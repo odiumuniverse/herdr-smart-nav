@@ -21,11 +21,41 @@ const TABS_MID: &str = r#"{"result":{"tabs":[
 ]}}"#;
 const TABS_LAST: &str = r#"{"result":{"tabs":[
   {"number":1,"tab_id":"w9:t1","focused":false},
-  {"number":2,"tab_id":"w9:t2","focused":true}
+  {"number":2,"tab_id":"w9:t2","focused":false},
+  {"number":3,"tab_id":"w9:t3","focused":true}
 ]}}"#;
+const TABS_GLOBAL: &str = r#"{"result":{"tabs":[
+  {"number":1,"tab_id":"w4:t1","focused":true},
+  {"number":2,"tab_id":"w9:t2","focused":false}
+]}}"#;
+const TABS_FIRST: &str = r#"{"result":{"tabs":[
+  {"number":1,"tab_id":"w9:t1","focused":true},
+  {"number":2,"tab_id":"w9:t2","focused":false},
+  {"number":3,"tab_id":"w9:t3","focused":false}
+]}}"#;
+const TABS_ONE: &str = r#"{"result":{"tabs":[
+  {"number":1,"tab_id":"w9:t1","focused":true}
+]}}"#;
+const PANE_CURRENT_W9: &str =
+    r#"{"result":{"pane":{"pane_id":"w9:p1","workspace_id":"w9","tab_id":"w9:t1"}}}"#;
 const SPACES_TWO: &str = r#"{"result":{"workspaces":[
   {"number":1,"workspace_id":"w9","focused":true},
   {"number":2,"workspace_id":"wB","focused":false}
+]}}"#;
+const SPACES_FIRST: &str = r#"{"result":{"workspaces":[
+  {"number":1,"workspace_id":"w9","focused":true},
+  {"number":2,"workspace_id":"wB","focused":false},
+  {"number":3,"workspace_id":"wC","focused":false}
+]}}"#;
+const SPACES_LAST: &str = r#"{"result":{"workspaces":[
+  {"number":1,"workspace_id":"wA","focused":false},
+  {"number":2,"workspace_id":"wB","focused":false},
+  {"number":3,"workspace_id":"w9","focused":true}
+]}}"#;
+const SPACES_THREE: &str = r#"{"result":{"workspaces":[
+  {"number":1,"workspace_id":"wA","focused":false},
+  {"number":2,"workspace_id":"w9","focused":true},
+  {"number":3,"workspace_id":"wC","focused":false}
 ]}}"#;
 const SPACES_ONE: &str = r#"{"result":{"workspaces":[
   {"number":1,"workspace_id":"w9","focused":true}
@@ -66,6 +96,7 @@ fn run_nav(args: &[&str], vars: &[(&str, &str)]) -> (i32, String) {
         .env("HERDR_BIN_PATH", &stub)
         .env("HERDR_PANE_ID", "w9:p1")
         .env("CALL_LOG", &log)
+        .env_remove("HERDR_ACTIVE_PANE_ID")
         .env_remove("HERDR_NAV_PASSTHROUGH_RE");
     for (k, v) in vars {
         cmd.env(k, v);
@@ -123,7 +154,79 @@ fn pane_edge_moves_tab() {
 }
 
 #[test]
-fn tab_edge_moves_space() {
+fn down_at_pane_edge_skips_tabs_to_next_workspace() {
+    let (code, log) = run_nav(
+        &["down"],
+        &[
+            ("STUB_PROCESS_INFO", PROCS_SHELL),
+            ("STUB_FOCUS", FOCUS_EDGE),
+            ("STUB_PANE_LIST", PANES_W9),
+            ("STUB_TAB_LIST", TABS_MID),
+            ("STUB_WORKSPACE_LIST", SPACES_THREE),
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(log.contains("focus down"), "{log}");
+    assert!(log.contains("workspace focus wC"), "{log}");
+    assert!(!log.contains("tab list"), "{log}");
+    assert!(!log.contains("tab focus"), "{log}");
+}
+
+#[test]
+fn up_at_pane_edge_skips_tabs_to_previous_workspace() {
+    let (code, log) = run_nav(
+        &["up"],
+        &[
+            ("STUB_PROCESS_INFO", PROCS_SHELL),
+            ("STUB_FOCUS", FOCUS_EDGE),
+            ("STUB_PANE_LIST", PANES_W9),
+            ("STUB_TAB_LIST", TABS_MID),
+            ("STUB_WORKSPACE_LIST", SPACES_THREE),
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(log.contains("focus up"), "{log}");
+    assert!(log.contains("workspace focus wA"), "{log}");
+    assert!(!log.contains("tab list"), "{log}");
+    assert!(!log.contains("tab focus"), "{log}");
+}
+
+#[test]
+fn up_at_first_workspace_wraps_to_last() {
+    let (code, log) = run_nav(
+        &["up"],
+        &[
+            ("STUB_PROCESS_INFO", PROCS_SHELL),
+            ("STUB_FOCUS", FOCUS_EDGE),
+            ("STUB_PANE_LIST", PANES_W9),
+            ("STUB_TAB_LIST", TABS_MID),
+            ("STUB_WORKSPACE_LIST", SPACES_FIRST),
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(log.contains("workspace focus wC"), "{log}");
+    assert!(!log.contains("tab"), "{log}");
+}
+
+#[test]
+fn down_at_last_workspace_wraps_to_first() {
+    let (code, log) = run_nav(
+        &["down"],
+        &[
+            ("STUB_PROCESS_INFO", PROCS_SHELL),
+            ("STUB_FOCUS", FOCUS_EDGE),
+            ("STUB_PANE_LIST", PANES_W9),
+            ("STUB_TAB_LIST", TABS_MID),
+            ("STUB_WORKSPACE_LIST", SPACES_LAST),
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(log.contains("workspace focus wA"), "{log}");
+    assert!(!log.contains("tab"), "{log}");
+}
+
+#[test]
+fn right_at_last_tab_wraps_to_first() {
     let (code, log) = run_nav(
         &["right"],
         &[
@@ -135,11 +238,50 @@ fn tab_edge_moves_space() {
         ],
     );
     assert_eq!(code, 0);
-    assert!(log.contains("workspace focus wB"), "{log}");
+    assert!(log.contains("tab focus w9:t1"), "{log}");
+    assert!(!log.contains("workspace list"), "{log}");
+    assert!(!log.contains("workspace focus"), "{log}");
 }
 
 #[test]
-fn tab_focus_failure_falls_to_space() {
+fn left_at_first_tab_wraps_to_last() {
+    let (code, log) = run_nav(
+        &["left"],
+        &[
+            ("STUB_PROCESS_INFO", PROCS_SHELL),
+            ("STUB_FOCUS", FOCUS_EDGE),
+            ("STUB_PANE_LIST", PANES_W9),
+            ("STUB_TAB_LIST", TABS_FIRST),
+            ("STUB_WORKSPACE_LIST", SPACES_TWO),
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(log.contains("tab focus w9:t3"), "{log}");
+    assert!(!log.contains("workspace list"), "{log}");
+    assert!(!log.contains("workspace focus"), "{log}");
+}
+
+#[test]
+fn single_tab_horizontal_is_quiet() {
+    let (code, log) = run_nav(
+        &["right"],
+        &[
+            ("STUB_PROCESS_INFO", PROCS_SHELL),
+            ("STUB_FOCUS", FOCUS_EDGE),
+            ("STUB_PANE_LIST", PANES_W9),
+            ("STUB_TAB_LIST", TABS_ONE),
+            ("STUB_WORKSPACE_LIST", SPACES_TWO),
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(log.contains("tab list"), "{log}");
+    assert!(!log.contains("tab focus"), "{log}");
+    assert!(!log.contains("workspace list"), "{log}");
+    assert!(!log.contains("workspace focus"), "{log}");
+}
+
+#[test]
+fn tab_focus_failure_is_quiet() {
     let (code, log) = run_nav(
         &["right"],
         &[
@@ -152,7 +294,69 @@ fn tab_focus_failure_falls_to_space() {
         ],
     );
     assert_eq!(code, 0);
-    assert!(log.contains("workspace focus wB"), "{log}");
+    assert!(log.contains("tab focus w9:t3"), "{log}");
+    assert!(!log.contains("workspace list"), "{log}");
+    assert!(!log.contains("workspace focus"), "{log}");
+}
+
+#[test]
+fn pane_env_missing_scopes_tabs_to_current_pane() {
+    let (code, log) = run_nav(
+        &["right"],
+        &[
+            ("HERDR_PANE_ID", ""),
+            ("STUB_PROCESS_INFO", PROCS_SHELL),
+            ("STUB_FOCUS", FOCUS_EDGE),
+            ("STUB_PANE_CURRENT", PANE_CURRENT_W9),
+            ("STUB_TAB_LIST", TABS_MID),
+            ("STUB_WORKSPACE_LIST", SPACES_TWO),
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(log.contains("pane current"), "{log}");
+    assert!(log.contains("tab list --workspace w9"), "{log}");
+    assert!(log.contains("tab focus w9:t3"), "{log}");
+    assert!(!log.contains("workspace focus"), "{log}");
+}
+
+#[test]
+fn pane_env_missing_without_current_is_quiet() {
+    let (code, log) = run_nav(
+        &["right"],
+        &[
+            ("HERDR_PANE_ID", ""),
+            ("STUB_PROCESS_INFO", PROCS_SHELL),
+            ("STUB_FOCUS", FOCUS_EDGE),
+            ("STUB_TAB_LIST", TABS_GLOBAL),
+            ("STUB_WORKSPACE_LIST", SPACES_TWO),
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(log.contains("focus right"), "{log}");
+    assert!(!log.contains("tab list"), "{log}");
+    assert!(!log.contains("tab focus"), "{log}");
+    assert!(!log.contains("workspace list"), "{log}");
+    assert!(!log.contains("workspace focus"), "{log}");
+}
+
+#[test]
+fn unknown_pane_does_not_use_global_tab_list() {
+    let (code, log) = run_nav(
+        &["right"],
+        &[
+            ("HERDR_PANE_ID", "w9:pX"),
+            ("STUB_PROCESS_INFO", PROCS_SHELL),
+            ("STUB_FOCUS", FOCUS_EDGE),
+            ("STUB_PANE_LIST", PANES_W9),
+            ("STUB_TAB_LIST", TABS_GLOBAL),
+            ("STUB_WORKSPACE_LIST", SPACES_TWO),
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(log.contains("focus right"), "{log}");
+    assert!(!log.contains("tab list"), "{log}");
+    assert!(!log.contains("tab focus"), "{log}");
+    assert!(!log.contains("workspace focus"), "{log}");
 }
 
 #[test]
@@ -186,19 +390,40 @@ fn cross_skips_vim_forward() {
 }
 
 #[test]
-fn single_space_stays_quiet() {
+fn cross_down_skips_tabs_to_workspace() {
     let (code, log) = run_nav(
-        &["right"],
+        &["cross", "down"],
+        &[
+            ("STUB_PROCESS_INFO", PROCS_NVIM),
+            ("STUB_FOCUS", FOCUS_EDGE),
+            ("STUB_PANE_LIST", PANES_W9),
+            ("STUB_TAB_LIST", TABS_MID),
+            ("STUB_WORKSPACE_LIST", SPACES_TWO),
+        ],
+    );
+    assert_eq!(code, 0);
+    assert!(!log.contains("send-keys"), "{log}");
+    assert!(log.contains("workspace focus wB"), "{log}");
+    assert!(!log.contains("tab"), "{log}");
+}
+
+#[test]
+fn single_workspace_is_quiet_for_down() {
+    let (code, log) = run_nav(
+        &["down"],
         &[
             ("STUB_PROCESS_INFO", PROCS_SHELL),
             ("STUB_FOCUS", FOCUS_EDGE),
             ("STUB_PANE_LIST", PANES_W9),
-            ("STUB_TAB_LIST", TABS_LAST),
+            ("STUB_TAB_LIST", TABS_MID),
             ("STUB_WORKSPACE_LIST", SPACES_ONE),
         ],
     );
     assert_eq!(code, 0);
+    assert!(log.contains("focus down"), "{log}");
+    assert!(log.contains("workspace list"), "{log}");
     assert!(!log.contains("workspace focus"), "{log}");
+    assert!(!log.contains("tab"), "{log}");
 }
 
 #[test]

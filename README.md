@@ -1,11 +1,16 @@
 # herdr-smart-nav
 
-One key family across four levels. `Ctrl+h/j/k/l` moves through, in order:
+One key family across four levels. `Ctrl+h/j/k/l` tries, in order:
 
 1. **nvim windows** — inside Neovim, `:wincmd h/j/k/l` first (`editor/nvim.lua`);
 2. **herdr panes** — at the nvim edge, or directly in non-vim panes;
-3. **herdr tabs** — at the pane strip end (no wrap);
-4. **herdr workspaces** ("spaces") — at the tab strip end (wraps around).
+3. **herdr tabs** — `Ctrl+h`/`Ctrl+l` only, at the pane's horizontal edge
+   (wraps around);
+4. **herdr workspaces** ("spaces") — `Ctrl+j`/`Ctrl+k` only, at the pane's
+   vertical edge (wraps around).
+
+So vertical keys always climb out of panes into workspaces, and horizontal
+keys cycle the current workspace's tabs.
 
 `vim-tmux-navigator` ported to herdr, then extended past panes. Written in Rust:
 no `jq`, no Python, no daemons — a single binary talking to the herdr CLI.
@@ -19,8 +24,8 @@ Two cooperating sides, one shared path. The binary exposes two entrypoints:
   Vim/Neovim it forwards the chord with `herdr pane send-keys` (nvim then owns
   level 1); otherwise it runs `cross`.
 - `herdr-smart-nav cross <dir>` — levels 2–4 only: `pane focus`, and on
-  `changed=false` the adjacent tab (scoped to the pane's workspace), then the
-  adjacent workspace.
+  `changed=false` the adjacent tab for `h`/`l` (scoped to the pane's workspace,
+  wrapping), or the adjacent workspace for `j`/`k` (wrapping).
 
 `editor/nvim.lua` maps the same keys to try the nvim window first and, at the
 edge, shell out to `cross`. Outside herdr the keys stay inside nvim.
@@ -111,9 +116,18 @@ mappings, `devxplay/herdr.nvim`, hand-rolled `<C-w>h` maps) — only one owner
 per chord, otherwise the last-loaded wins silently. Verify with
 `:verbose nmap <C-h>`.
 
-The lua side needs the release binary (`target/release/herdr-smart-nav`,
-built by `plugin install` or `make build`), falling back to
-`~/.cargo/bin/herdr-smart-nav` and `PATH`.
+## Updating
+
+Both sides ship from this one repo and work as a pair: the nvim maps call the
+binary, the binary implements the crossing. Update them together, otherwise
+mixed versions give mixed behavior (an old binary sends `Ctrl+j` at a pane
+edge to the next tab instead of the next workspace).
+
+- herdr: re-run `herdr plugin install odiumuniverse/herdr-smart-nav --yes`
+  (refreshes the checkout and rebuilds the binary);
+- nvim: update the plugin and rebuild it (`:Lazy build herdr-smart-nav`, or
+  `cargo build --release` with vim-plug);
+- after key-binding or config changes: `herdr server reload-config`.
 
 ## Configuration
 
@@ -141,7 +155,7 @@ process basename; invalid regex disables passthrough safely.
 ## Development
 
 ```sh
-make test   # 21 tests: 12 unit + 9 integration (stub herdr CLI, no server needed)
+make test   # 32 tests: 13 unit + 19 integration (stub herdr CLI, no server needed)
 make lint   # fmt + clippy + lua syntax
 make build  # release binary
 ```

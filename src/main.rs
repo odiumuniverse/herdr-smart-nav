@@ -163,28 +163,39 @@ fn strip_pick(items: &[Value], id_key: &str, step: i64, wrap: bool) -> Pick {
     }
 }
 
-fn pane_workspace(pane: &str) -> Option<String> {
-    let data = run_herdr(&["pane", "list"])?;
-    let panes = data.pointer("/result/panes").and_then(Value::as_array)?;
-    panes
-        .iter()
-        .find(|p| p.get("pane_id").and_then(Value::as_str) == Some(pane))
-        .and_then(|p| p.get("workspace_id"))
+fn pane_workspace(pane: Option<&str>) -> Option<String> {
+    if let Some(pane) = pane {
+        let data = run_herdr(&["pane", "list"])?;
+        let panes = data.pointer("/result/panes").and_then(Value::as_array)?;
+        return panes
+            .iter()
+            .find(|p| p.get("pane_id").and_then(Value::as_str) == Some(pane))
+            .and_then(|p| p.get("workspace_id"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
+    }
+    run_herdr(&["pane", "current", "--current"])?
+        .pointer("/result/pane/workspace_id")
         .and_then(Value::as_str)
         .map(str::to_string)
 }
 
-fn level_tab(step: i64, pane: Option<&str>) -> Option<bool> {
-    let workspace = pane.and_then(pane_workspace);
-    let data = match workspace {
-        Some(ws) => run_herdr(&["tab", "list", "--workspace", &ws])?,
-        None => run_herdr(&["tab", "list"])?,
+fn level_tab(step: i64, pane: Option<&str>) -> bool {
+    let Some(workspace) = pane_workspace(pane) else {
+        return false;
     };
-    let tabs = data.pointer("/result/tabs").and_then(Value::as_array)?;
-    match strip_pick(tabs, "tab_id", step, false) {
-        Pick::Id(id) => run_herdr(&["tab", "focus", &id]).map(|_| true),
-        Pick::End => None,
-        Pick::Miss => Some(false),
+    let Some(data) = run_herdr(&["tab", "list", "--workspace", &workspace]) else {
+        return false;
+    };
+    let Some(tabs) = data.pointer("/result/tabs").and_then(Value::as_array) else {
+        return false;
+    };
+    if tabs.len() < 2 {
+        return false;
+    }
+    match strip_pick(tabs, "tab_id", step, true) {
+        Pick::Id(id) => run_herdr(&["tab", "focus", &id]).is_some(),
+        _ => false,
     }
 }
 
@@ -208,10 +219,14 @@ fn cross(dir: &str, step: i64, pane: Option<&str>) {
     if level_pane(dir, pane) {
         return;
     }
-    if level_tab(step, pane) == Some(true) {
-        return;
+    match dir {
+        "up" | "down" => {
+            level_space(step);
+        }
+        _ => {
+            level_tab(step, pane);
+        }
     }
-    level_space(step);
 }
 
 fn main() {
@@ -325,6 +340,15 @@ mod tests {
         ];
         assert!(matches!(strip_pick(&ws, "workspace_id", -1, true), Pick::Id(id) if id == "b"));
         assert!(matches!(strip_pick(&ws, "workspace_id", 1, true), Pick::Id(id) if id == "b"));
+    }
+
+    #[test]
+    fn strip_wrap_from_last() {
+        let ws = vec![
+            json!({"number": 1, "workspace_id": "a", "focused": false}),
+            json!({"number": 2, "workspace_id": "b", "focused": true}),
+        ];
+        assert!(matches!(strip_pick(&ws, "workspace_id", 1, true), Pick::Id(id) if id == "a"));
     }
 
     #[test]
